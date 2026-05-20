@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Buscador de Recetas IA</title>
+<style>
+body {
+  font-family: Arial;
+  text-align: center;
+  background-color: #f4f4f4;
+}
+input {
+  width: 350px;
+  padding: 10px;
+}
+button {
+  padding: 10px;
+  cursor: pointer;
+}
+#resultados {
+  margin-top: 20px;
+  max-width: 700px;
+  margin-left: auto;
+  margin-right: auto;
+}
+.receta {
+  background: white;
+  padding: 20px;
+  margin: 15px 10px;
+  border-radius: 10px;
+  text-align: left;
+}
+.receta img {
+  display: block;
+  margin-top: 10px;
+}
+</style>
+</head>
+<body>
+
+<h1>🍳 Busca recetas con varios ingredientes</h1>
+
+<p>Escribe ingredientes en inglés separados por coma.<br>
+Ej: chicken, rice, tomato</p>
+
+<input type="text" id="ingredientes" placeholder="Ej: chicken, rice, tomato">
+<button onclick="buscarRecetas()">Buscar</button>
+
+<div id="resultados"></div>
+
+<script>
+async function buscarRecetas() {
+  const input = document.getElementById("ingredientes").value.trim();
+  const ingredientes = input.split(",").map(i => i.trim()).filter(i => i);
+
+  if (ingredientes.length === 0) {
+    document.getElementById("resultados").innerHTML = "<p>Escribe al menos un ingrediente.</p>";
+    return;
+  }
+
+  try {
+    const url = `https://www.themealdb.com/api/json/v1/1/filter.php?i=${ingredientes[0]}`;
+    const respuesta = await fetch(url);
+    const data = await respuesta.json();
+
+    if (!data.meals) {
+      document.getElementById("resultados").innerHTML = "<p>No se encontraron recetas.</p>";
+      return;
+    }
+
+    const recetasFiltradas = [];
+
+    for (let plato of data.meals) {
+      const detalleUrl = `https://www.themealdb.com/api/json/v1/1/lookup.php?i=${plato.idMeal}`;
+      const detalleResp = await fetch(detalleUrl);
+      const detalleData = await detalleResp.json();
+      const receta = detalleData.meals[0];
+
+      const ingredientesReceta = [];
+
+      for (let i = 1; i <= 20; i++) {
+        const ing = receta[`strIngredient${i}`];
+        if (ing && ing.trim() !== "") {
+          ingredientesReceta.push(ing.toLowerCase());
+        }
+      }
+
+      const contieneTodos = ingredientes.every(ing =>
+        ingredientesReceta.includes(ing.toLowerCase())
+      );
+
+      if (contieneTodos) {
+        recetasFiltradas.push(receta);
+      }
+    }
+
+    if (recetasFiltradas.length === 0) {
+      document.getElementById("resultados").innerHTML =
+        "<p>No se encontraron recetas con todos esos ingredientes.</p>";
+      return;
+    }
+
+    let html = "";
+
+    recetasFiltradas.slice(0,5).forEach(receta => {
+      html += `
+        <div class="receta">
+          <h3>${receta.strMeal}</h3>
+          <img src="${receta.strMealThumb}" width="250">
+          <p><strong>Categoría:</strong> ${receta.strCategory}</p>
+          <p><strong>Área:</strong> ${receta.strArea}</p>
+        </div>
+      `;
+    });
+
+    document.getElementById("resultados").innerHTML = html;
+
+  } catch (error) {
+    document.getElementById("resultados").innerHTML =
+      "<p>Error al conectar con el servidor.</p>";
+  }
+}
+</script>
+
+</body>
+</html>
